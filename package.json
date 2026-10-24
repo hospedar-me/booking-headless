@@ -1,0 +1,142 @@
+{
+  "name": "@hospedar.me/booking-headless",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "prepack": "npm run build",
+    "generate:api": "openapi-ts",
+    "lint": "node scripts/check-boundaries.mjs"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "vitest": "^4.0.18",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@hey-api/openapi-ts": "0.92.3",
+    "esbuild": "^0.27.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "jsdom": "^26.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hospedar-me/booking-headless.git"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./models": {
+      "types": "./dist/models.d.ts",
+      "import": "./dist/models.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
+    },
+    "./sdk": {
+      "types": "./dist/sdk.d.ts",
+      "import": "./dist/sdk.js"
+    },
+    "./sdk/types": {
+      "types": "./dist/sdk/types.gen.d.ts",
+      "import": "./dist/sdk-types.js"
+    },
+    "./react/useBookingCheckout": {
+      "types": "./dist/react/useBookingCheckout.d.ts",
+      "import": "./dist/react/useBookingCheckout.js"
+    },
+    "./react/useBookingPayment": {
+      "types": "./dist/react/useBookingPayment.d.ts",
+      "import": "./dist/react/useBookingPayment.js"
+    },
+    "./react/useBookingPaymentStatus": {
+      "types": "./dist/react/useBookingPaymentStatus.d.ts",
+      "import": "./dist/react/useBookingPaymentStatus.js"
+    },
+    "./react/useBookingResults": {
+      "types": "./dist/react/useBookingResults.d.ts",
+      "import": "./dist/react/useBookingResults.js"
+    },
+    "./react/useBookingSearch": {
+      "types": "./dist/react/useBookingSearch.d.ts",
+      "import": "./dist/react/useBookingSearch.js"
+    },
+    "./react/useMyReservation": {
+      "types": "./dist/react/useMyReservation.d.ts",
+      "import": "./dist/react/useMyReservation.js"
+    },
+    "./react/useMyReservations": {
+      "types": "./dist/react/useMyReservations.d.ts",
+      "import": "./dist/react/useMyReservations.js"
+    },
+    "./models/auth": {
+      "types": "./dist/models/auth.d.ts",
+      "import": "./dist/models-auth.js"
+    },
+    "./models/home": {
+      "types": "./dist/models/home.d.ts",
+      "import": "./dist/models-home.js"
+    },
+    "./react/useGuestDistribution": {
+      "types": "./dist/react/useGuestDistribution.d.ts",
+      "import": "./dist/react/useGuestDistribution.js"
+    },
+    "./react/useReservationNotes": {
+      "types": "./dist/react/useReservationNotes.d.ts",
+      "import": "./dist/react/useReservationNotes.js"
+    },
+    "./react/useReservationModification": {
+      "types": "./dist/react/useReservationModification.d.ts",
+      "import": "./dist/react/useReservationModification.js"
+    },
+    "./react/useReservationModificationRequests": {
+      "types": "./dist/react/useReservationModificationRequests.d.ts",
+      "import": "./dist/react/useReservationModificationRequests.js"
+    },
+    "./react/useReservationRefunds": {
+      "types": "./dist/react/useReservationRefunds.d.ts",
+      "import": "./dist/react/useReservationRefunds.js"
+    },
+    "./package.json": "./package.json",
+    "./sdk/validators": {
+      "types": "./dist/sdk/zod.gen.d.ts",
+      "import": "./dist/sdk-validators.js"
+    }
+  },
+  "dependencies": {
+    "zod": "^4.0.0",
+    "date-fns": "^4.1.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
+}
