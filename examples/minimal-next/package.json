@@ -1,0 +1,21 @@
+{
+  "name": "booking-headless-minimal-next",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3010",
+    "build": "next build"
+  },
+  "dependencies": {
+    "@hospedar.me/booking-headless": "file:../../artifacts/hospedar.me-booking-headless-0.1.0.tgz",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19"
+  }
+}
