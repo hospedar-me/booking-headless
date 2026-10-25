@@ -127,8 +127,10 @@ export const useBookingCheckout = (
     error: null,
     submitting: false,
   });
-  const [selectionPreview, setSelectionPreview] =
-    useState<BookingEngineSelectionPreviewResponse | null>(null);
+  const checkoutSelectionKey = JSON.stringify([locale, initialState?.criteria, initialState?.items]);
+  const [quoteState, setQuoteState] = useState<{key:string;data:BookingEngineSelectionPreviewResponse|null}>({key:'',data:null});
+  const selectionPreview = quoteState.key === checkoutSelectionKey ? quoteState.data : null;
+  const setSelectionPreview = (data:BookingEngineSelectionPreviewResponse|null) => setQuoteState({key:checkoutSelectionKey,data});
   const [selectionPreviewError, setSelectionPreviewError] = useState<
     string | null
   >(null);

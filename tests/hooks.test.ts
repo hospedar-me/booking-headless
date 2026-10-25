@@ -423,3 +423,12 @@ it("owns cancellation preview, submission and local reservation refresh without 
   expect(hook.current.cancellationState.submitting).toBe(false);
   hook.unmount();
 });
+
+it('blocks checkout when current quote policies are missing instead of using an old catalogue',async()=>{
+ const create=vi.fn();const stale=vi.fn().mockResolvedValue({data:{ratePlans:[{id:10,commercialPolicies:{stale:true}}]}});
+ const runtime=context({actionPreviewBookingSelection:vi.fn().mockResolvedValue({data:{paymentOptions:{ratePlanReference:10}}}),actionGetReservationPolicies:stale,actionCreateBookingPreReservation:create});
+ const initialState={criteria:{checkIn:'2027-01-01',checkOut:'2027-01-02',adults:2,children:0,rooms:1},items:[{roomCategoryId:1,ratePlanId:10,quantity:1}],summary:{selectedCount:1,totalValue:100,totalCapacity:2},hasMixedPlans:false} as any;
+ const hook=mount(()=>useBookingCheckout({initialState,initialAuthenticatedUser:null,footerData:null,locale:'en'},runtime));await act(async()=>{});
+ expect(hook.current.selectionPreview).toBeNull();expect(hook.current.selectionPreviewError).toBe('errors.selectionPreview');expect(stale).not.toHaveBeenCalled();
+ act(()=>{hook.current.setAuthChoice('guest');hook.current.setFormData({fullName:'Guest',email:'guest@example.test',phone:'12345',notes:''})});await act(async()=>hook.current.submit());expect(create).not.toHaveBeenCalled();hook.unmount();
+});
