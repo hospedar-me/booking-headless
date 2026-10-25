@@ -1,7 +1,7 @@
 import type { BookingServerContext, Translator, ActionResult } from "./context";
 import { bindBookingSdk, translateApiError } from "./context";
 type AppLocale = string;
-import type { BookingFederatedSession } from "../models/auth";
+import type { BookingPublicSession } from "../models/auth";
 
 export function createBookingAuthActionsOperations(
   context: BookingServerContext,
@@ -39,12 +39,17 @@ export function createBookingAuthActionsOperations(
   }
   async function actionGetBookingAuthSession(
     locale: AppLocale,
-  ): Promise<ActionResult<BookingFederatedSession>> {
+  ): Promise<ActionResult<BookingPublicSession>> {
     const t = await getActionTranslator(locale);
     const session = await recoverBookingAuthSession();
 
     if (!session) return { error: t("actionErrors.auth.sessionExpired") };
-    return { data: session };
+    return {
+      data: {
+        authenticatedUser: session.authenticatedUser,
+        expiresAt: session.expiresAt,
+      },
+    };
   }
   async function actionLogoutBookingAuthSession(
     locale: AppLocale,

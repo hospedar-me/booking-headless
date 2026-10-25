@@ -184,26 +184,10 @@ export const useGuestDistribution = (
   );
   const automaticDistributionKey = `${adults}:${children}:${childAgesKey}:${petsKey}:${rooms}`;
   const lastAutomaticDistributionKeyRef = useRef(automaticDistributionKey);
-  useEffect(() => {
-    const handleCategorySelection = (event: Event) => {
-      const categoryId = (event as CustomEvent<{ categoryId?: number }>).detail
-        ?.categoryId;
-      if (!categoryId) return;
-
-      setSelectedCategoryId(categoryId);
-    };
-
-    window.addEventListener(
-      "booking-category-selected",
-      handleCategorySelection,
-    );
-    return () => {
-      window.removeEventListener(
-        "booking-category-selected",
-        handleCategorySelection,
-      );
-    };
-  }, []);
+  const selectCategory = useCallback(
+    (categoryId?: number) => setSelectedCategoryId(categoryId),
+    [],
+  );
   useEffect(() => {
     distributionRequestIdRef.current++;
     return () => {
@@ -549,6 +533,7 @@ export const useGuestDistribution = (
     setActiveTab,
     selectedCategoryId,
     setSelectedCategoryId,
+    selectCategory,
     selectedRatePlanId,
     setSelectedRatePlanId,
     promotionCode,

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -177,5 +178,27 @@ it("rejects private resources even when called without the transport allowlist",
   await expect(
     cache.fetch(url.replace("public-profile", "my-reservations")),
   ).rejects.toThrow("non_public_resource");
+  expect(request).not.toHaveBeenCalled();
+});
+
+it("never serves or persists contractual policies, including a previously stored snapshot", async () => {
+  const request = vi.fn<typeof fetch>().mockRejectedValue(new Error("offline"));
+  const cache = await setup(request);
+  const policies = url.replace("public-profile", "reservation-policies");
+  await cache.save(
+    "content-" +
+      createHash("sha256")
+        .update("client-a|pt-BR|" + policies)
+        .digest("hex"),
+    {
+      version: 1,
+      savedAt: Date.now(),
+      checkedAt: Date.now(),
+      status: 200,
+      data: { stalePolicy: true },
+    },
+  );
+  expect(cache.matches(policies)).toBe(false);
+  await expect(cache.fetch(policies)).rejects.toThrow("non_public_resource");
   expect(request).not.toHaveBeenCalled();
 });

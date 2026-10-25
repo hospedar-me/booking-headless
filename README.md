@@ -32,3 +32,9 @@ PublicContentCache keeps API JSON and image bytes on durable storage scoped to t
 The GitHub repository is public. Initial npm ownership of @hospedar.me must be established before the first registry release. Configure an npm trusted publisher for organization hospedar-me, repository booking-headless, workflow publish.yml, environment npm, then tag v0.1.0. The workflow uses Node 24/npm 11 and GitHub OIDC, without a persistent npm publishing token. See https://docs.npmjs.com/trusted-publishers/. Public package installation needs no token.
 
 The SDK entry exports createClient for the HTTP execution context. The Hotel API endpoint with the same generated name remains available as hotelApi.createClient (also createHotelClient). All other generated endpoints retain their existing names.
+
+## 0.2.0 controller contracts
+
+Checkout exposes submit() without a DOM event. Authentication operations return BookingPublicSession (identity and expiry only); access tokens remain in the server session. useGuestDistribution exposes selectCategory(id); template event bridges belong to the consuming UI. Refund controller inputs contain only locale and reservation. Reservation financial display projections and cancellation operations are centralized in useMyReservation and projectReservationDetails. Selection previews and checkout URLs are keyed to their originating selection, including during debounce.
+
+Requires the backend selection preview to include commercialPolicies. Checkout displays that current quote snapshot; the public-content cache excludes reservation-policies and cannot serve older copies of that resource. Missing quote policies prevent submission. The backend remains authoritative when a reservation is created.

@@ -95,7 +95,6 @@ export const useBookingCheckout = (
     actionStartBookingAuthorization,
     actionCreateBookingPreReservation,
     actionPreviewBookingSelection,
-    actionGetReservationPolicies,
   } = context.operations;
   const translateUi = context.translate;
   const {
@@ -134,8 +133,6 @@ export const useBookingCheckout = (
     string | null
   >(null);
   const [selectionPreviewLoading, setSelectionPreviewLoading] = useState(false);
-  const [reservationPolicies, setReservationPolicies] =
-    useState<BookingEngineReservationPoliciesResponse | null>(null);
   const pendingAuthPopupRef = useRef<PendingAuthPopup | null>(null);
   const reservationAttempt = useRef<{
     key: string;
@@ -201,7 +198,7 @@ export const useBookingCheckout = (
 
         if (!active) return;
 
-        if (response.error) {
+        if (response.error || !response.data?.commercialPolicies) {
           throw new Error("selection_preview_failed");
         }
 
@@ -221,15 +218,6 @@ export const useBookingCheckout = (
       active = false;
     };
   }, [initialState, locale, t]);
-  useEffect(() => {
-    let active = true;
-    void actionGetReservationPolicies(locale).then((result) => {
-      if (active && result.data) setReservationPolicies(result.data);
-    });
-    return () => {
-      active = false;
-    };
-  }, [locale]);
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
       const pendingAuthPopup = pendingAuthPopupRef.current;
@@ -373,9 +361,7 @@ export const useBookingCheckout = (
       });
     }
   };
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
+  const submit = async () => {
     if (!initialState) return;
 
     if (!authChoice) {
@@ -405,6 +391,7 @@ export const useBookingCheckout = (
       const options = selectionPreview?.paymentOptions;
       if (
         !options ||
+        !selectionPreview?.commercialPolicies ||
         options.ratePlanReference !== initialState.items[0]?.ratePlanId
       ) {
         throw new Error(t("errors.selectionPreview"));
@@ -483,8 +470,6 @@ export const useBookingCheckout = (
     setSelectionPreviewError,
     selectionPreviewLoading,
     setSelectionPreviewLoading,
-    reservationPolicies,
-    setReservationPolicies,
     pendingAuthPopupRef,
     reservationAttempt,
     authPopupRef,
@@ -495,6 +480,6 @@ export const useBookingCheckout = (
     openAuthPopup,
     handleGuestChoice,
     handleLogout,
-    handleSubmit,
+    submit,
   };
 };

@@ -5,3 +5,5 @@ export * from "./core/booking-checkout";
 export * from "./core/booking-payment";
 export * from "./core/date-only";
 export * from "./core/guest-distribution";
+
+export * from "./core/reservation-detail";

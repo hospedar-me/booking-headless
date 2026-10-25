@@ -1,3 +1,5 @@
+import { useBookingResults } from "../src/react/useBookingResults";
+import { useMyReservation } from "../src/react/useMyReservation";
 import { useBookingCheckout } from "../src/react/useBookingCheckout";
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -157,7 +159,10 @@ it("does not start modification operations for an ineligible reservation", async
 
 it("reuses a failed checkout idempotency key until its content changes", async () => {
   const create = vi.fn().mockResolvedValue({ error: "offline" });
-  const preview = { paymentOptions: { ratePlanReference: 10 } };
+  const preview = {
+    paymentOptions: { ratePlanReference: 10 },
+    commercialPolicies: {},
+  };
   const runtime = context({
     actionPreviewBookingSelection: vi.fn().mockResolvedValue({ data: preview }),
     actionGetReservationPolicies: vi.fn().mockResolvedValue({ data: {} }),
@@ -197,12 +202,11 @@ it("reuses a failed checkout idempotency key until its content changes", async (
     });
     hook.current.setSelectionPreview(preview as any);
   });
-  const event = { preventDefault: () => {} } as any;
   await act(async () => {
-    await hook.current.handleSubmit(event);
+    await hook.current.submit();
   });
   await act(async () => {
-    await hook.current.handleSubmit(event);
+    await hook.current.submit();
   });
   expect(create).toHaveBeenCalledTimes(2);
   expect(create.mock.calls[0][0].payload.idempotencyKey).toBe(
@@ -210,10 +214,212 @@ it("reuses a failed checkout idempotency key until its content changes", async (
   );
   act(() => hook.current.updateField("notes", "Changed request"));
   await act(async () => {
-    await hook.current.handleSubmit(event);
+    await hook.current.submit();
   });
   expect(create.mock.calls[2][0].payload.idempotencyKey).not.toBe(
     create.mock.calls[0][0].payload.idempotencyKey,
   );
+  hook.unmount();
+});
+
+it("exposes explicit category selection without a template event protocol", () => {
+  const runtime = context({});
+  const hook = mount(() => useGuestDistribution({}, runtime));
+  act(() => hook.current.selectCategory(42));
+  expect(hook.current.selectedCategoryId).toBe(42);
+  act(() =>
+    window.dispatchEvent(
+      new CustomEvent("booking-category-selected", {
+        detail: { categoryId: 99 },
+      }),
+    ),
+  );
+  expect(hook.current.selectedCategoryId).toBe(42);
+  hook.unmount();
+});
+it("invalidates price and checkout immediately and ignores outdated quantity and rate-plan replies", async () => {
+  vi.useFakeTimers();
+  try {
+    const pending: any[] = [];
+    const preview = vi.fn(
+      () => new Promise((resolve) => pending.push(resolve)),
+    );
+    const runtime = context({ actionPreviewBookingSelection: preview });
+    runtime.searchParams = new URLSearchParams(
+      "checkIn=2027-01-01&checkOut=2027-01-03&adults=2&children=0&rooms=1",
+    );
+    const totals = {
+      baseInCents: 1000,
+      finalInCents: 1000,
+      childPolicyInCents: 0,
+      petPolicyInCents: 0,
+      promotionsInCents: 0,
+      reservationFeesInCents: 0,
+      embeddedFeesInCents: 0,
+      toCollectFeesInCents: 0,
+    };
+    const quote = (id: number) => ({
+      quoteKey: "1:" + id,
+      ratePlanId: id,
+      ratePlanName: "Rate " + id,
+      total: 1000,
+      quote: {
+        ratePlanId: id,
+        totals,
+        stayPricing: {
+          dailyBreakdown: [],
+          promotionApplications: { once: [], dailyByDate: {} },
+          promotionCatalog: {},
+          feeApplications: { once: [], dailyByDate: {} },
+          feeCatalog: {},
+          childPolicyApplications: { dailyByDate: {} },
+          childPolicyCatalog: {},
+          petPolicyApplications: { dailyByDate: {} },
+          petPolicyCatalog: {},
+        },
+      },
+    });
+    const initialResult = {
+      roomCards: [
+        {
+          roomCategoryId: 1,
+          name: "Room",
+          category: { id: 1, name: "Room" },
+          maxOccupancy: 2,
+          maxAdultOccupancy: 2,
+          maxChildOccupancy: 0,
+          availability: 4,
+          plans: [quote(10), quote(11)],
+        },
+      ],
+      initialSelectedQuantities: { "1:10": 1 },
+      defaultSelection: new Map([[1, 10]]),
+      recommendedCombination: [],
+    };
+    const props: any = {
+      locale: "en",
+      footerData: null,
+      bookingFormCopy: null,
+      initialResult,
+      initialCriteriaKey: "hydrate",
+    };
+    // Supply the exact hydration key so the initial backend search is not repeated.
+    const { serializeBookingSearchParams, parseBookingSearchParams } =
+      await import("../src/core/booking-results");
+    props.initialCriteriaKey = serializeBookingSearchParams(
+      parseBookingSearchParams(runtime.searchParams),
+    );
+    const hook = mount(() => useBookingResults(props, runtime));
+    await act(async () => vi.advanceTimersByTimeAsync(450));
+    const result = (amount: number) => ({
+      data: {
+        ratePlanId: 10,
+        selectedAccommodations: [],
+        totals: { ...totals, finalInCents: amount },
+      },
+    });
+    await act(async () => pending[0](result(1000)));
+    expect(hook.current.selectionPreview?.totals.finalInCents).toBe(1000);
+    expect(hook.current.checkoutHref).toBeTruthy();
+    act(() => hook.current.setQuantity("1:10", 2));
+    expect(hook.current.selectionPreview).toBeNull();
+    expect(hook.current.checkoutHref).toBeNull();
+    expect(hook.current.selectionPreviewLoading).toBe(true);
+    await act(async () => vi.advanceTimersByTimeAsync(450));
+    act(() => {
+      hook.current.setQuantity("1:10", 0);
+      hook.current.setQuantity("1:11", 1);
+    });
+    expect(hook.current.checkoutHref).toBeNull();
+    await act(async () => pending[1](result(2000)));
+    expect(hook.current.selectionPreview).toBeNull();
+    await act(async () => vi.advanceTimersByTimeAsync(450));
+    await act(async () =>
+      pending[2]({
+        ...result(3000),
+        data: { ...result(3000).data, ratePlanId: 11 },
+      }),
+    );
+    expect(hook.current.selectionPreview?.ratePlanId).toBe(11);
+    expect(hook.current.checkoutHref).toBeTruthy();
+    hook.unmount();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it("owns cancellation preview, submission and local reservation refresh without duplicate submissions", async () => {
+  const reservation = {
+    id: "r",
+    status: "Confirmed",
+    pricing: {
+      totals: { finalInCents: 10000 },
+      stayPricing: {
+        dailyBreakdown: {},
+        promotionApplications: { once: [], dailyByDate: {} },
+        promotionCatalog: {},
+        feeApplications: { once: [], dailyByDate: {} },
+        feeCatalog: {},
+      },
+    },
+  };
+  let resolve: any;
+  const cancel = vi.fn(() => new Promise((r) => (resolve = r)));
+  const response = {
+    reservationId: "r",
+    status: "Cancelled",
+    penaltyInCents: 2000,
+    refundAmountInCents: 4000,
+    isPenaltyApplied: true,
+  };
+  const runtime = context({
+    actionGetMyReservation: vi.fn().mockResolvedValue({ data: reservation }),
+    actionGetMyReservationFinancialDetails: vi
+      .fn()
+      .mockResolvedValue({
+        data: {
+          summary: {
+            reservationValueInCents: 10000,
+            totalWithLocalFeesInCents: 10000,
+            paidInCents: 6000,
+            openBalanceInCents: 4000,
+          },
+          statement: { lines: [] },
+        },
+      }),
+    actionGetBookingReservationObligation: vi
+      .fn()
+      .mockResolvedValue({ data: null }),
+    actionListMyReservationRefundRequests: vi
+      .fn()
+      .mockResolvedValue({ data: { data: [] } }),
+    actionPreviewMyReservationCancellation: vi
+      .fn()
+      .mockResolvedValue({ data: response }),
+    actionCancelMyReservation: cancel,
+  });
+  const hook = mount(() =>
+    useMyReservation(
+      {
+        reservationId: "r",
+        locale: "en",
+      },
+      runtime,
+    ),
+  );
+  await act(async () => {});
+  await act(async () => hook.current.loadCancellationPreview());
+  expect(hook.current.cancellationPreview?.settlementTotalInCents).toBe(2000);
+  let first: any;
+  act(() => {
+    first = hook.current.confirmCancellation();
+    void hook.current.confirmCancellation();
+  });
+  expect(cancel).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    resolve({ data: response });
+    await first;
+  });
+  expect(hook.current.cancellationState.result?.status).toBe("Cancelled");
+  expect(hook.current.cancellationState.submitting).toBe(false);
   hook.unmount();
 });

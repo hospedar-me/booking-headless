@@ -39,6 +39,7 @@ export function createReservationPoliciesOperations(
     try {
       const response =
         await bookingEngineApi.getBookingEngineReservationPolicies({
+          cache: "no-store",
           headers: bookingApiLocaleHeaders(locale),
           path: { client_id: BOOKING_CLIENT_ID },
         });

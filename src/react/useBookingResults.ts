@@ -109,12 +109,13 @@ export const useBookingResults = (
   >(initialResult?.initialSelectedQuantities ?? {});
   const [loading, setLoading] = useState(!hasServerHydration);
   const [error, setError] = useState<string | null>(initialError);
-  const [selectionPreview, setSelectionPreview] =
-    useState<BookingEngineQuoteSelection | null>(null);
-  const [selectionPreviewLoading, setSelectionPreviewLoading] = useState(false);
-  const [selectionPreviewError, setSelectionPreviewError] = useState<
-    string | null
-  >(null);
+  const [previewState, setPreviewState] = useState<{
+    key: string;
+    data: BookingEngineQuoteSelection | null;
+    loading: boolean;
+    error: string | null;
+  }>({ key: "", data: null, loading: false, error: null });
+  const previewRequest = useRef(0);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedRatePlans, setSelectedRatePlans] = useState<string[]>([]);
   const [selectedRoomsCount, setSelectedRoomsCount] = useState<number[]>([]);
@@ -222,6 +223,22 @@ export const useBookingResults = (
     () => buildSelectedPlanSummaries(selectedQuantities, roomCards),
     [selectedQuantities, roomCards],
   );
+  const mixedPlans = useMemo(
+    () => hasMixedRatePlans(selectedQuantities, roomCards),
+    [selectedQuantities, roomCards],
+  );
+  const selectionKey = JSON.stringify([criteriaKey, locale, selectedItems]);
+  const canPreview =
+    selectedItems.length > 0 &&
+    !mixedPlans &&
+    !!criteria.checkIn &&
+    !!criteria.checkOut;
+  const selectionPreview =
+    previewState.key === selectionKey ? previewState.data : null;
+  const selectionPreviewLoading =
+    canPreview && (previewState.key !== selectionKey || previewState.loading);
+  const selectionPreviewError =
+    previewState.key === selectionKey ? previewState.error : null;
   const summary = useMemo(
     () =>
       selectedItems.reduce(
@@ -269,62 +286,65 @@ export const useBookingResults = (
       resolveSelectedItemTotalsFromSelection(selectedItems, selectionPreview),
     [selectedItems, selectionPreview],
   );
-  const mixedPlans = useMemo(
-    () => hasMixedRatePlans(selectedQuantities, roomCards),
-    [selectedQuantities, roomCards],
-  );
   useEffect(() => {
-    if (
-      selectedItems.length === 0 ||
-      mixedPlans ||
-      !criteria.checkIn ||
-      !criteria.checkOut
-    ) {
-      setSelectionPreview(null);
-      setSelectionPreviewLoading(false);
-      setSelectionPreviewError(null);
+    const requestId = ++previewRequest.current;
+    if (!canPreview) {
+      setPreviewState({
+        key: selectionKey,
+        data: null,
+        loading: false,
+        error: null,
+      });
       return;
     }
-
-    const ratePlanId = selectedItems[0]?.ratePlanId;
-    if (!ratePlanId) return;
-
     let active = true;
-    const timeout = window.setTimeout(async () => {
-      setSelectionPreviewLoading(true);
-      setSelectionPreviewError(null);
-
+    setPreviewState({
+      key: selectionKey,
+      data: null,
+      loading: true,
+      error: null,
+    });
+    const timeout = setTimeout(async () => {
       try {
         const response = await actionPreviewBookingSelection({
           locale,
           payload: buildSelectionPreviewPayload(
             criteria,
             selectedItems,
-            ratePlanId,
+            selectedItems[0].ratePlanId,
           ),
         });
-
-        if (!active) return;
-
-        if (response.error) {
-          throw new Error("preview_failed");
-        }
-
-        setSelectionPreview(response.data ?? null);
+        if (!active || requestId !== previewRequest.current) return;
+        if (response.error || !response.data) throw new Error("preview_failed");
+        setPreviewState({
+          key: selectionKey,
+          data: response.data,
+          loading: false,
+          error: null,
+        });
       } catch {
-        if (!active) return;
-        setSelectionPreview(null);
-        setSelectionPreviewError(t("errors.previewUnavailable"));
-      } finally {
-        if (active) setSelectionPreviewLoading(false);
+        if (active && requestId === previewRequest.current)
+          setPreviewState({
+            key: selectionKey,
+            data: null,
+            loading: false,
+            error: t("errors.previewUnavailable"),
+          });
       }
     }, 450);
-
     return () => {
       active = false;
-      window.clearTimeout(timeout);
+      clearTimeout(timeout);
     };
-  }, [criteria, locale, mixedPlans, selectedItems, t]);
+  }, [
+    selectionKey,
+    canPreview,
+    criteria,
+    locale,
+    selectedItems,
+    t,
+    actionPreviewBookingSelection,
+  ]);
   const checkoutHref = useMemo(() => {
     if (!mixedPlans && (selectionPreviewLoading || !selectionPreview))
       return null;
@@ -396,11 +416,8 @@ export const useBookingResults = (
     error,
     setError,
     selectionPreview,
-    setSelectionPreview,
     selectionPreviewLoading,
-    setSelectionPreviewLoading,
     selectionPreviewError,
-    setSelectionPreviewError,
     selectedCategories,
     setSelectedCategories,
     selectedRatePlans,

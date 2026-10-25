@@ -6484,6 +6484,56 @@
         ]
       }
     },
+    "/pms/api-tokens/{token_id}/self-revoke": {
+      "delete": {
+        "tags": [
+          "PMS"
+        ],
+        "summary": "A machine token can revoke only itself; no PMS provisioning secret is required.",
+        "operationId": "revokeOwnBookingEngineToken",
+        "parameters": [
+          {
+            "name": "token_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api_jwt_token": []
+          }
+        ]
+      }
+    },
     "/pms/booking-engine/oauth-clients/{installation_id}": {
       "put": {
         "tags": [
@@ -27678,9 +27728,14 @@
           {
             "type": "object",
             "required": [
+              "commercialPolicies",
               "paymentOptions"
             ],
             "properties": {
+              "commercialPolicies": {
+                "$ref": "#/components/schemas/RatePlanCommercialPolicies",
+                "description": "Current policies used to compute this selection preview, never a cached catalogue."
+              },
               "paymentOptions": {
                 "$ref": "#/components/schemas/ReservationPaymentOptions"
               }
@@ -28973,6 +29028,15 @@
           "tokenType"
         ],
         "properties": {
+          "expiresInMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Optional lifetime for temporary integration tokens, in minutes.",
+            "minimum": 0
+          },
           "name": {
             "type": "string"
           },

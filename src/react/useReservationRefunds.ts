@@ -14,15 +14,9 @@ export const activeStatuses: PaymentRefundRequestStatus[] = [
   "approved",
   "processing",
 ];
-type RefundRequestsSectionProps = {
-  buttonText?: string;
-  className?: string;
-  hideAction?: boolean;
-  hideHeader?: boolean;
+export type ReservationRefundsOptions = {
   locale: AppLocale;
-  mode?: "section" | "button";
   reservation: Reservation;
-  showWhenEmpty?: boolean;
 };
 export const centsToInputValue = (amountInCents: number) =>
   (amountInCents / 100).toFixed(2);
@@ -36,16 +30,7 @@ export const parseAmountInputToCents = (value: string) => {
   return Math.round(amount * 100);
 };
 export const useReservationRefunds = (
-  {
-    buttonText,
-    className,
-    hideAction = false,
-    hideHeader = false,
-    locale,
-    mode = "section",
-    reservation,
-    showWhenEmpty = true,
-  }: RefundRequestsSectionProps,
+  { locale, reservation }: ReservationRefundsOptions,
   context: HookContext,
 ) => {
   const {

@@ -48,3 +48,20 @@ describe("server execution contexts", () => {
     expect(seen.every((r) => r.url.includes("/booking-engine/"))).toBe(true);
   });
 });
+
+it("returns only public identity from the authentication action", async () => {
+  const runtime = context("tenant", []);
+  runtime.auth.getSession = async () => ({
+    accessToken: "must-stay-on-server",
+    authenticatedUser: { subject: "guest", fullName: "Guest" },
+    expiresAt: "2027-01-01",
+  });
+  const result =
+    await createBookingOperations(runtime).actionGetBookingAuthSession("en");
+  expect(result.data).toEqual({
+    authenticatedUser: { subject: "guest", fullName: "Guest" },
+    expiresAt: "2027-01-01",
+  });
+  expect(JSON.stringify(result)).not.toContain("must-stay-on-server");
+  expect(result.data).not.toHaveProperty("accessToken");
+});

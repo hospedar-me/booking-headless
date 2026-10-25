@@ -21,7 +21,7 @@ export default function Checkout() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void booking.handleSubmit(e);
+          void booking.submit();
         }}
       >
         {(["fullName", "email", "phone", "notes"] as const).map((field) => (

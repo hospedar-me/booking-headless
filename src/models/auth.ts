@@ -8,6 +8,12 @@ export type BookingFederatedUser = {
   username?: string | null;
 };
 
+export type BookingPublicSession = {
+  authenticatedUser: BookingFederatedUser;
+  expiresAt: string;
+};
+
+/** Server-only credentials; never return this object from browser operations. */
 export type BookingFederatedSession = {
   accessToken: string;
   authenticatedUser: BookingFederatedUser;

@@ -801,6 +801,10 @@ export type BookingEngineSelectionPreviewRequest = {
  * Pricing preview and the explicit, expiring commercial offer to accept.
  */
 export type BookingEngineSelectionPreviewResponse = BookingEngineQuoteSelection & {
+    /**
+     * Current policies used to compute this selection preview, never a cached catalogue.
+     */
+    commercialPolicies: RatePlanCommercialPolicies;
     paymentOptions: ReservationPaymentOptions;
 };
 
@@ -1125,6 +1129,10 @@ export type CreateAccommodation = {
 };
 
 export type CreateApiTokenRequest = {
+    /**
+     * Optional lifetime for temporary integration tokens, in minutes.
+     */
+    expiresInMinutes?: number | null;
     name: string;
     scopes: PermissionSet;
     tokenType: ApiTokenType;
@@ -9254,6 +9262,28 @@ export type RevokeApiTokenResponses = {
 };
 
 export type RevokeApiTokenResponse = RevokeApiTokenResponses[keyof RevokeApiTokenResponses];
+
+export type RevokeOwnBookingEngineTokenData = {
+    body?: never;
+    path: {
+        token_id: string;
+    };
+    query?: never;
+    url: '/pms/api-tokens/{token_id}/self-revoke';
+};
+
+export type RevokeOwnBookingEngineTokenErrors = {
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+};
+
+export type RevokeOwnBookingEngineTokenError = RevokeOwnBookingEngineTokenErrors[keyof RevokeOwnBookingEngineTokenErrors];
+
+export type RevokeOwnBookingEngineTokenResponses = {
+    204: void;
+};
+
+export type RevokeOwnBookingEngineTokenResponse = RevokeOwnBookingEngineTokenResponses[keyof RevokeOwnBookingEngineTokenResponses];
 
 export type ProvisionBookingEngineOAuthClientsData = {
     body: ProvisionBookingOAuthRequest;

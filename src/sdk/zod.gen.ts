@@ -3637,6 +3637,10 @@ export const zPermissionSet = z.object({
 });
 
 export const zCreateApiTokenRequest = z.object({
+    expiresInMinutes: z.optional(z.union([
+        z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+        z.null()
+    ])),
     name: z.string(),
     scopes: zPermissionSet,
     tokenType: zApiTokenType
@@ -7890,6 +7894,7 @@ export const zBookingEngineQuoteSelection = z.object({
  * Pricing preview and the explicit, expiring commercial offer to accept.
  */
 export const zBookingEngineSelectionPreviewResponse = zBookingEngineQuoteSelection.and(z.object({
+    commercialPolicies: zRatePlanCommercialPolicies,
     paymentOptions: zReservationPaymentOptions
 }));
 
@@ -10966,6 +10971,16 @@ export const zRevokeApiTokenData = z.object({
  * NoContent. Token revogado
  */
 export const zRevokeApiTokenResponse = z.void();
+
+export const zRevokeOwnBookingEngineTokenData = z.object({
+    body: z.optional(z.never()),
+    path: z.object({
+        token_id: z.uuid()
+    }),
+    query: z.optional(z.never())
+});
+
+export const zRevokeOwnBookingEngineTokenResponse = z.void();
 
 export const zProvisionBookingEngineOAuthClientsData = z.object({
     body: zProvisionBookingOAuthRequest,

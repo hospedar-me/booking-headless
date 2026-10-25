@@ -1,8 +1,12 @@
-"use client";
+import {
+  projectReservationDetails,
+  type ReservationCancellationFinancials,
+} from "../core/reservation-detail";
+("use client");
 import type { HookContext } from "./context";
 type AppLocale = string;
 const translateUi = (_locale: string, key: string) => key;
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FooterViewData } from "../models/home";
 import type { BookingFederatedUser } from "../models/auth";
 import {
@@ -35,59 +39,14 @@ type CancellationDialogState = {
   submitting: boolean;
 };
 type ReservationRequestFilter = "all" | "modifications" | "refunds";
-type MyReservationDetailPageProps = {
-  authenticatedUser: BookingFederatedUser;
-  footerData: FooterViewData;
-  locale: AppLocale;
-  reservationId: string;
-  voucherLogoUrl?: string | null;
-};
-export const isPaymentMovement = (line: ReservationFinancialStatementLine) =>
-  line.entryType === "PAYMENT" || line.entryType === "REFUND";
-export const effectiveSignedAmountInCents = (
-  line: ReservationFinancialStatementLine,
-) => {
-  const stateAmount = line.state.amountInCents;
-  const isVoidedState =
-    line.state.kind === "voided" || line.state.kind === "partially_voided";
-
-  if (!isVoidedState || stateAmount <= 0) {
-    return line.signedAmountInCents;
-  }
-
-  if (line.signedAmountInCents >= 0) {
-    return Math.max(0, line.signedAmountInCents - stateAmount);
-  }
-
-  return Math.min(0, line.signedAmountInCents + stateAmount);
-};
-type ReservationCancellationFinancials = {
-  reservationId: string;
-  status: ReservationStatus;
-  cancelledAt?: string | null;
-  penaltyInCents: number;
-  postReservationAdjustmentsInCents?: number | null;
-  settlementTotalInCents?: number | null;
-  refundAmountInCents: number;
-  balanceDueInCents?: number | null;
-  totalPaidInCents?: number | null;
-  totalInCents?: number | null;
-  isPenaltyApplied: boolean;
-  policyDays?: number | null;
-  feeType?: "basis_points" | "fixed" | string | null;
-  feeAmount?: number | null;
-};
+export type MyReservationOptions = { locale: AppLocale; reservationId: string };
 export const useMyReservation = (
-  {
-    authenticatedUser,
-    footerData,
-    locale,
-    reservationId,
-    voucherLogoUrl,
-  }: MyReservationDetailPageProps,
+  { locale, reservationId }: MyReservationOptions,
   context: HookContext,
 ) => {
   const {
+    actionCancelMyReservation,
+    actionPreviewMyReservationCancellation,
     actionGetMyReservation,
     actionGetMyReservationFinancialDetails,
     actionListMyReservationRefundRequests,
@@ -130,9 +89,6 @@ export const useMyReservation = (
   >(null);
   const [financialRefreshVersion, setFinancialRefreshVersion] = useState(0);
   const [isRefreshingFinancial, setIsRefreshingFinancial] = useState(false);
-  const [activeTab, setActiveTab] = useState("summary");
-  const [requestFilter, setRequestFilter] =
-    useState<ReservationRequestFilter>("all");
   const [pendingRefundRequestsInCents, setPendingRefundRequestsInCents] =
     useState(0);
   useEffect(() => {
@@ -255,78 +211,12 @@ export const useMyReservation = (
   }, [reservationId]);
   const reservation = loadState.reservation;
   const financial = financialState.details;
-  const financialSummary = financial?.summary ?? null;
-  const financialStatement = financial?.statement ?? null;
-  const statementLines = financialStatement?.lines ?? [];
-  const chargeStatementLines = statementLines.filter(
-    (line) => !isPaymentMovement(line),
+  const projection = projectReservationDetails(
+    reservation,
+    financial,
+    cancellationState,
   );
-  const paymentStatementLines = statementLines.filter(isPaymentMovement);
-  const sumChargeLines = (kinds: string[]) =>
-    chargeStatementLines
-      .filter((line) => kinds.includes(String(line.kind)))
-      .reduce((sum, line) => sum + effectiveSignedAmountInCents(line), 0);
-  const stayChargesInCents = sumChargeLines(["daily_charge", "child_policy"]);
-  const feeChargesInCents = sumChargeLines([
-    "tax",
-    "service_fee",
-    "manual_charge",
-  ]);
-  const discountChargesInCents = sumChargeLines([
-    "promotion_discount",
-    "reservation_discount",
-    "adjustment_discount",
-  ]);
-  const adjustmentChargesInCents = sumChargeLines(["adjustment"]);
-  const postedModificationFeeInCents = chargeStatementLines
-    .filter((line) => String(line.kind) === "modification_fee")
-    .reduce((sum, line) => sum + effectiveSignedAmountInCents(line), 0);
-  const postedCancellationFeeInCents = chargeStatementLines
-    .filter((line) => String(line.kind) === "cancellation_fee")
-    .reduce((sum, line) => sum + effectiveSignedAmountInCents(line), 0);
-  const modificationFeeInCents = Math.max(0, postedModificationFeeInCents);
-  const rawReservationValueInCents =
-    financialSummary?.reservationValueInCents ??
-    reservation?.pricing.totals.finalInCents ??
-    0;
-  const isCancelledReservation = reservation?.status === "Cancelled";
-  const cancellationFeeInCents = Math.max(
-    0,
-    isCancelledReservation
-      ? (cancellationState.result?.penaltyInCents ??
-          cancellationState.preview?.penaltyInCents ??
-          postedCancellationFeeInCents)
-      : postedCancellationFeeInCents,
-  );
-  const postReservationAdjustmentsInCents =
-    modificationFeeInCents + cancellationFeeInCents;
-  const cancellationSettlementTotalInCents = isCancelledReservation
-    ? postReservationAdjustmentsInCents
-    : 0;
-  const showPriceTab = true;
-  const displayedTotalWithLocalFeesInCents = financialSummary
-    ? financialSummary.totalWithLocalFeesInCents
-    : rawReservationValueInCents;
-  const displayedAccountTotalInCents = isCancelledReservation
-    ? cancellationSettlementTotalInCents
-    : displayedTotalWithLocalFeesInCents + postReservationAdjustmentsInCents;
-  const usesFolioStatement =
-    reservation?.status === "CheckedIn" || reservation?.status === "CheckedOut";
-  const displayedOpenBalanceInCents = financialSummary
-    ? isCancelledReservation
-      ? Math.max(
-          0,
-          cancellationSettlementTotalInCents - financialSummary.paidInCents,
-        )
-      : usesFolioStatement
-        ? financialSummary.openBalanceInCents
-        : Math.max(
-            0,
-            rawReservationValueInCents +
-              postReservationAdjustmentsInCents -
-              financialSummary.paidInCents,
-          )
-    : 0;
+  const { financialSummary, displayedOpenBalanceInCents } = projection;
   const paymentAction = reservation
     ? getReservationPaymentAction({
         locale,
@@ -348,54 +238,119 @@ export const useMyReservation = (
           paymentObligation.obligation.id,
         )
       : null;
+  const scope = useMemo(() => ({ active: true }), [reservationId, locale]);
+  useEffect(() => {
+    scope.active = true;
+    return () => {
+      scope.active = false;
+    };
+  }, [scope]);
+  const cancellationInFlight = useRef(false);
+  const cancellationRequest = useRef(0);
+  const loadCancellationPreview = async () => {
+    if (!reservation || !scope.active) return;
+    setCancellationState((c) => ({
+      ...c,
+      error: null,
+      loadingPreview: true,
+      preview: c.preview?.reservationId === reservation.id ? c.preview : null,
+    }));
+    const request = ++cancellationRequest.current;
+    let result;
+    try {
+      result = await actionPreviewMyReservationCancellation(
+        reservation.id,
+        locale,
+      );
+    } catch {
+      result = { error: td("errors.cancellationPreview") };
+    }
+    if (!scope.active || request !== cancellationRequest.current) return;
+    if (result.error || !result.data) {
+      setCancellationState((c) => ({
+        ...c,
+        error: result.error ?? td("errors.cancellationPreview"),
+        loadingPreview: false,
+        preview: null,
+      }));
+      return;
+    }
+    setCancellationState((c) => ({
+      ...c,
+      error: null,
+      loadingPreview: false,
+      preview: result.data,
+    }));
+  };
+
+  const handleCancellationDialogOpenChange = (open: boolean) => {
+    if (!open && cancellationState.submitting) return;
+    setCancellationState((c) => ({ ...c, error: open ? c.error : null, open }));
+    if (open) void loadCancellationPreview();
+  };
+
+  const confirmCancellation = async () => {
+    if (!reservation || !scope.active || cancellationInFlight.current) return;
+    cancellationInFlight.current = true;
+    setCancellationState((c) => ({ ...c, error: null, submitting: true }));
+    let result;
+    try {
+      result = await actionCancelMyReservation(reservation.id, locale);
+    } catch {
+      result = { error: td("errors.cancelReservation") };
+    }
+    cancellationInFlight.current = false;
+    if (!scope.active) return;
+    if (result.error || !result.data) {
+      setCancellationState((c) => ({
+        ...c,
+        error: result.error ?? td("errors.cancelReservation"),
+        submitting: false,
+      }));
+      return;
+    }
+    const payload = result.data;
+    setFinancialRefreshVersion((version) => version + 1);
+    setLoadState((c) => ({
+      ...c,
+      reservation: c.reservation
+        ? {
+            ...c.reservation,
+            cancelledAt: payload.cancelledAt ?? c.reservation.cancelledAt,
+            status: payload.status,
+          }
+        : c.reservation,
+    }));
+    setCancellationState((c) => ({
+      ...c,
+      error: null,
+      open: false,
+      preview: payload,
+      result: payload,
+      submitting: false,
+    }));
+  };
+
   return {
+    ...projection,
+    loadCancellationPreview,
+    handleCancellationDialogOpenChange,
+    confirmCancellation,
     copyLocale,
     t,
     td,
     finalizeReservationLabel,
     loadState,
-    setLoadState,
     financialState,
-    setFinancialState,
     cancellationState,
-    setCancellationState,
     paymentObligation,
-    setPaymentObligation,
     financialRefreshVersion,
-    setFinancialRefreshVersion,
+    refreshFinancial: () =>
+      setFinancialRefreshVersion((version) => version + 1),
     isRefreshingFinancial,
-    setIsRefreshingFinancial,
-    activeTab,
-    setActiveTab,
-    requestFilter,
-    setRequestFilter,
     pendingRefundRequestsInCents,
-    setPendingRefundRequestsInCents,
     reservation,
     financial,
-    financialSummary,
-    financialStatement,
-    statementLines,
-    chargeStatementLines,
-    paymentStatementLines,
-    sumChargeLines,
-    stayChargesInCents,
-    feeChargesInCents,
-    discountChargesInCents,
-    adjustmentChargesInCents,
-    postedModificationFeeInCents,
-    postedCancellationFeeInCents,
-    modificationFeeInCents,
-    rawReservationValueInCents,
-    isCancelledReservation,
-    cancellationFeeInCents,
-    postReservationAdjustmentsInCents,
-    cancellationSettlementTotalInCents,
-    showPriceTab,
-    displayedTotalWithLocalFeesInCents,
-    displayedAccountTotalInCents,
-    usesFolioStatement,
-    displayedOpenBalanceInCents,
     paymentAction,
     requiredPaymentHref,
   };

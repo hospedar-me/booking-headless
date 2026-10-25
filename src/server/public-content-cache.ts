@@ -21,7 +21,7 @@ const IMAGE_TYPES = new Set([
   "image/svg+xml",
 ]);
 const CATALOG =
-  /\/booking-engine\/clients\/([^/]+)\/(public-profile|gallery|accommodation-categories|rate-plans|reviews(?:\/summary)?|property-content-sections(?:\/[^/]+)?|reservation-policies)$/;
+  /\/booking-engine\/clients\/([^/]+)\/(public-profile|gallery|accommodation-categories|rate-plans|reviews(?:\/summary)?|property-content-sections(?:\/[^/]+)?)$/;
 type Entry = {
   version: 1;
   savedAt: number;
